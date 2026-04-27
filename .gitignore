@@ -1,0 +1,34 @@
+# ignore data and output directory
+results/
+__pycache__/
+
+# vscode debug
+.vscode/checkpoints/
+*.pth
+*.pt
+*.ckpt
+data/
+maps/
+*.h5
+*.mat
+
+# large experiment files
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+
+# raw MRI data / generated maps
+data/photom/
+*.h5
+*.npy
+*.npz
+
+# logs and outputs
+outputs/
+results/
+logs/
+wandb/
+
+# keep HFS mask files
+!mask/*.mat
