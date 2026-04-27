@@ -19,7 +19,7 @@ class FastMRIKneeDataSet(Dataset):
 
         elif mode == "test":
             self.kspace_dir = (
-                "mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/kspace/"
+                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/kspace/"
             )
             self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/maps/"
 
