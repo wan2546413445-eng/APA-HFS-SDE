@@ -12,22 +12,22 @@ class FastMRIKneeDataSet(Dataset):
     def __init__(self, config, mode):
         super(FastMRIKneeDataSet, self).__init__()
         self.config = config
-        input_pkl = "/mnt/SSD/wsy/projects/HFS-SDE-master/data/data_slice.pkl"
+        input_pkl = "/mnt/SSD/wsy/fastmri_data/data_slice_debug/data_slice.pkl"
         if mode in ["train", "training"]:
-            self.kspace_dir = "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_train_knee/kspace/"
-            self.maps_dir = "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_train_knee/maps/"
+            self.kspace_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/kspace/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/maps/"
 
         elif mode == "test":
             self.kspace_dir = (
-                "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_test/kspace/"
+                "mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/kspace/"
             )
-            self.maps_dir = "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_test/maps/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/maps/"
 
         elif mode == "sample":
             self.kspace_dir = (
-                "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_test/kspace/"
+                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_small/maps/"
             )
-            self.maps_dir = "/mnt/SSD/wsy/projects/HFS-SDE-master/data/multicoil_test/maps/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_small/maps/"
         elif mode == "photom":
             self.kspace_dir = "data/photom/kspace/"
             self.maps_dir = "data/photom/map/"
