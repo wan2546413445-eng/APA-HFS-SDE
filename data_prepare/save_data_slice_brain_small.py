@@ -2,8 +2,8 @@ import os
 import h5py
 import pickle
 
-directory = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/kspace"
-output_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/data_slice.pkl"
+directory = "/mnt/public/成像组/dataset/fast_MRI/multicoil_brain/brain_multicoil_train_batch_0/multicoil_train"
+output_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train/data_slice.pkl"
 
 h5_files = sorted([f for f in os.listdir(directory) if f.endswith(".h5")])
 

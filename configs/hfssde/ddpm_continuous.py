@@ -38,19 +38,19 @@ def get_config():
     sampling.method = "pc"
     sampling.predictor = "euler_maruyama"  # reverse_diffusion or euler_maruyama
     sampling.corrector = "langevin"  # langevin or none
-    sampling.folder = "2023_10_07T20_39_52_ddpm_hfssde_low_frequency_16_std_20.0_N_1000"
+    sampling.folder = "2026_04_27T18_20_47_ddpm_hfssde_low_frequency_16_std_20.0_N_100"
 
-    sampling.ckpt = 190
+    sampling.ckpt = "200"
     sampling.mask_type = "uniform"  # uniform, cartesian, random_uniform or center
-    sampling.acc = "10"
+    sampling.acc = "4"
     sampling.acs = "24"
     sampling.fft = "nofft"  # fft or nofft
 
-    sampling.accelerated_sampling = False
+    sampling.accelerated_sampling = True
     if training.sde == "hfssde":
         sampling.snr = 0.16
         if sampling.accelerated_sampling:
-            sampling.snr = 0.32
+            sampling.snr = 0.16 #求稳原本是0.32
     elif training.sde == "vpsde":
         sampling.snr = 0.27  # 0.27
         if sampling.accelerated_sampling:
@@ -60,12 +60,12 @@ def get_config():
 
     sampling.mse = 2.5
     sampling.corrector_mse = 0.1  ###
-    sampling.datashift = "photom"  ### head or knee photom
+    sampling.datashift = "brain"  ### head or knee photom
 
     # data
     data = config.data
     data.centered = False  # True: Input is in [-1, 1]
-    data.dataset_name = "fastMRI_knee"
+    data.dataset_name = "fastMRI_brain"
     data.image_size = 320
     data.normalize_type = "std"  # minmax or std or img_std
     data.normalize_coeff = 1.5  # normalize coefficient
@@ -77,7 +77,7 @@ def get_config():
     model.ema_rate = 0.9999
     model.normalization = "GroupNorm"
     model.nonlinearity = "swish"
-    model.nf = 128
+    model.nf = 128  #原本128
     model.ch_mult = (1, 2, 2, 2)
     model.num_res_blocks = 2
     model.attn_resolutions = (16,)

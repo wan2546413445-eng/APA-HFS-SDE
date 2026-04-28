@@ -14,7 +14,7 @@ from torch.utils import tensorboard
 from utils.utils import *
 import utils.datasets as datasets
 import tensorflow as tf
-
+from utils.calc import Evaluation_metrics
 
 FLAGS = flags.FLAGS
 
@@ -286,25 +286,59 @@ def sample(config, workdir):
         k0 = k0.to(config.device)
         csm = csm.to(config.device)
 
-        label = Emat_xyt_complex(k0, True, csm, 1.0).to(config.device)
+        # 保存 complex 版本的 csm，后面算 label / zf 都用它
+        csm_complex = csm
+
+        # GT label
+        label = Emat_xyt_complex(k0, True, csm_complex, 1.0).to(config.device)
 
         label_dir = os.path.join("results", FLAGS.config.sampling.datashift)
         if not tf.io.gfile.exists(label_dir):
             tf.io.gfile.makedirs(label_dir)
         save_mat(label_dir, label.to(label), "label", index, normalize=False)
 
+        # undersampled k-space
         atb = k0 * atb_mask
+
+        # zero-filled reconstruction，用 complex csm 算
+        zf_complex = Emat_xyt_complex(atb, True, csm_complex, 1.0)
+
+        print("[DBG BEFORE SAMPLE] label abs max/mean:",
+              torch.abs(label).max().item(),
+              torch.abs(label).mean().item())
+
+        print("[DBG BEFORE SAMPLE] zf abs max/mean:",
+              torch.abs(zf_complex).max().item(),
+              torch.abs(zf_complex).mean().item())
+
+        print("ZF metrics:")
+        Evaluation_metrics(label, zf_complex, False)
+
+        # 给 sampling 准备 atb_to_image
         atb_to_image = (
-            c2r(Emat_xyt_complex(atb, True, csm, 1))
+            c2r(Emat_xyt_complex(atb, True, csm_complex, 1))
             .type(torch.FloatTensor)
             .to(config.device)
-        )  # 1x2x320x320
+        )
 
-        csm = c2r(csm).type(torch.FloatTensor).to(config.device)
+        # sampling 里面需要 real/imag csm
+        csm_real = c2r(csm_complex).type(torch.FloatTensor).to(config.device)
 
-        recon, n = sampling_fn(score_model, atb, atb_to_image, csm)
-
+        # diffusion reconstruction
+        recon, n = sampling_fn(score_model, atb, atb_to_image, csm_real)
         recon = r2c(recon)
+
+        print("[DBG AFTER SAMPLE] label abs max/mean:",
+              torch.abs(label).max().item(),
+              torch.abs(label).mean().item())
+
+        print("[DBG AFTER SAMPLE] zf abs max/mean:",
+              torch.abs(zf_complex).max().item(),
+              torch.abs(zf_complex).mean().item())
+
+        print("[DBG AFTER SAMPLE] recon abs max/mean:",
+              torch.abs(recon).max().item(),
+              torch.abs(recon).mean().item())
 
         save_mat(
             FLAGS.config.sampling.folder,
@@ -314,10 +348,11 @@ def sample(config, workdir):
             normalize=False,
         )
 
-        from utils.calc import Evaluation_metrics
-
+        print("Recon metrics:")
         ssim, psnr, nmse = Evaluation_metrics(
-            label, recon, True if FLAGS.config.sampling.datashift == "photom" else False
+            label,
+            recon,
+            True if FLAGS.config.sampling.datashift == "photom" else False,
         )
 
         print(

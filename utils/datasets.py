@@ -12,22 +12,25 @@ class FastMRIKneeDataSet(Dataset):
     def __init__(self, config, mode):
         super(FastMRIKneeDataSet, self).__init__()
         self.config = config
-        input_pkl = "/mnt/SSD/wsy/fastmri_data/data_slice_debug/data_slice.pkl"
+
         if mode in ["train", "training"]:
-            self.kspace_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/kspace/"
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train_small/maps/"
+            self.kspace_dir = "/mnt/public/成像组/dataset/fast_MRI/multicoil_brain/brain_multicoil_train_batch_0/multicoil_train/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train/data_slice.pkl"
 
         elif mode == "test":
             self.kspace_dir = (
-                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/kspace/"
+                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/kspace/"
             )
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_test_small/maps/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/data_slice.pkl"
 
         elif mode == "sample":
             self.kspace_dir = (
-                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_small/maps/"
+                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/kspace/"
             )
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_small/maps/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/data_slice.pkl"
         elif mode == "photom":
             self.kspace_dir = "data/photom/kspace/"
             self.maps_dir = "data/photom/map/"
@@ -134,7 +137,7 @@ class FastMRIKneeDataSet(Dataset):
 
 def get_dataset(config, mode):
     print("Dataset name:", config.data.dataset_name)
-    if config.data.dataset_name == "fastMRI_knee":
+    if config.data.dataset_name in ["fastMRI_knee", "fastMRI_brain"]:
         dataset = FastMRIKneeDataSet(config, mode)
 
     if mode == "training":
