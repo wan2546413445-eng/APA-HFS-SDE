@@ -4,7 +4,7 @@ from absl import flags
 from ml_collections.config_flags import config_flags
 import logging
 import os
-import tensorflow as tf
+#import tensorflow as tf
 from datetime import datetime
 from utils.utils import setup_seed
 
@@ -52,7 +52,7 @@ def main(argv):
             )
 
         FLAGS.workdir = os.path.join(FLAGS.workdir, MODEL_ID)
-        tf.io.gfile.makedirs(FLAGS.workdir)
+        os.makedirs(FLAGS.workdir, exist_ok=True)
 
         gfile_stream = open(os.path.join(FLAGS.workdir, "stdout.txt"), "w")
         handler = logging.StreamHandler(gfile_stream)

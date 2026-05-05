@@ -42,7 +42,7 @@ class FastMRIKneeDataSet(Dataset):
 
         self.mode = mode
         self.file_list = get_all_files(self.kspace_dir)
-        self.skip_first_slices = getattr(self.config.data, "skip_first_slices", 0)
+        self.skip_first_slices = getattr(self.config.data, "skip_first_slices", 6)
 
         valid_files = []
         bad_files = []

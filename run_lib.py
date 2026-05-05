@@ -157,7 +157,17 @@ def sample(config, workdir):
     state = dict(optimizer=optimizer, model=score_model, ema=ema, step=0)
 
     checkpoint_dir = os.path.join(workdir, "checkpoints")
-    ckpt_path = os.path.join(checkpoint_dir, f"checkpoint_{config.sampling.ckpt}.pth")
+
+    # Support both:
+    # 1) sampling.ckpt = "190"
+    # 2) sampling.ckpt = "/abs/path/to/checkpoint_190.pth"
+    ckpt_cfg = str(config.sampling.ckpt)
+
+    if ckpt_cfg.endswith(".pth") or os.path.isabs(ckpt_cfg):
+        ckpt_path = ckpt_cfg
+    else:
+        ckpt_path = os.path.join(checkpoint_dir, f"checkpoint_{ckpt_cfg}.pth")
+
     state = restore_checkpoint(ckpt_path, state, device=config.device)
     print("load weights:", ckpt_path)
 

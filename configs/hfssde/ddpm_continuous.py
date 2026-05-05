@@ -40,7 +40,7 @@ def get_config():
     sampling.corrector = "langevin"  # langevin or none
     sampling.folder = "checkpoint_190"
 
-    sampling.ckpt = "/mnt/SSD/wsy/projects/HFS-SDE-master/checkpoints/hfssde/checkpoint_190.pth"
+    sampling.ckpt = "/mnt/SSD/wsy/projects/HFS-SDE-master/baselines/hfs_knee/hfs_knee_ckpt/checkpoint_190.pth"
     sampling.mask_type = "uniform"  # uniform, cartesian, random_uniform or center
     sampling.acc = "10"
     sampling.acs = "24"
@@ -69,7 +69,7 @@ def get_config():
     data.image_size = 320
     data.normalize_type = "std"  # minmax or std or img_std
     data.normalize_coeff = 1.5  # normalize coefficient
-
+    data.skip_first_slices = 6
     # model
     model = config.model
     model.name = "ddpm"
