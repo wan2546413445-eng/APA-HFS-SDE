@@ -1,7 +1,7 @@
 #!/bin/bash
 # sh test_fastMRI.sh "vp"
 
-export CUDA_VISIBLE_DEVICES=3
+export CUDA_VISIBLE_DEVICES=1
 
 if [ "$1" = "vp" ]
 then

@@ -14,23 +14,19 @@ class FastMRIKneeDataSet(Dataset):
         self.config = config
 
         if mode in ["train", "training"]:
-            self.kspace_dir = "/mnt/public/成像组/dataset/fast_MRI/multicoil_brain/brain_multicoil_train_batch_0/multicoil_train/"
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train/maps/"
-            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_train/data_slice.pkl"
+            self.kspace_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_train_knee/kspace/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_train_knee/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/knee/data_slice.pkl"
+
 
         elif mode == "test":
-            self.kspace_dir = (
-                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/kspace/"
-            )
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/maps/"
-            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/data_slice.pkl"
-
+            self.kspace_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_test/kspace/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_test/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/knee/data_slice.pkl"
         elif mode == "sample":
-            self.kspace_dir = (
-                "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/kspace/"
-            )
-            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/maps/"
-            input_pkl = "/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/data_slice.pkl"
+            self.kspace_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_val/kspace/"
+            self.maps_dir = "/mnt/SSD/wsy/fastmri_data/knee/multicoil_val/maps/"
+            input_pkl = "/mnt/SSD/wsy/fastmri_data/knee/data_slice.pkl"
         elif mode == "photom":
             self.kspace_dir = "data/photom/kspace/"
             self.maps_dir = "data/photom/map/"
@@ -46,7 +42,27 @@ class FastMRIKneeDataSet(Dataset):
 
         self.mode = mode
         self.file_list = get_all_files(self.kspace_dir)
-        print(len(self.file_list))
+        self.skip_first_slices = getattr(self.config.data, "skip_first_slices", 0)
+
+        valid_files = []
+        bad_files = []
+
+        for f in self.file_list:
+            with h5py.File(f, "r") as hf:
+                kshape = hf["kspace"].shape
+
+            if kshape[-2] < self.config.data.image_size or kshape[-1] < self.config.data.image_size:
+                bad_files.append((os.path.basename(f), kshape))
+            else:
+                valid_files.append(f)
+
+        if len(bad_files) > 0:
+            print("[WARN] Excluding files smaller than target crop size:")
+            for name, shape in bad_files:
+                print("  ", name, shape)
+
+        self.file_list = valid_files
+        print("valid files:", len(self.file_list))
 
         self.num_slices = np.zeros(
             (
@@ -66,7 +82,7 @@ class FastMRIKneeDataSet(Dataset):
             # Exclude the first 6 frames
             if self.mode != "sample" and self.mode != "photom":
                 self.num_slices[idx] = int(
-                    max(data_dict[os.path.basename(file)] - 6, 1)
+                    max(data_dict[os.path.basename(file)] - self.skip_first_slices, 1)
                 )
             else:
                 self.num_slices[idx] = int(data_dict[os.path.basename(file)])
@@ -93,8 +109,9 @@ class FastMRIKneeDataSet(Dataset):
         )
         with h5py.File(maps_file, "r") as data:
             # Exclude the first 6 frames
-            if self.mode != "sample" and self.mode != "p":
-                slice_idx = min(int(np.sum(self.num_slices)) - 1, slice_idx + 6)
+            if self.mode != "sample" and self.mode != "photom":
+                #slice_idx = min(int(np.sum(self.num_slices)) - 1, slice_idx + 6)全数据集slice跳过，难怪之前这个逻辑不生效
+                slice_idx = slice_idx + self.skip_first_slices
 
             maps_idx = data["s_maps"][slice_idx]
             maps_idx = np.expand_dims(maps_idx, 0)
@@ -128,6 +145,7 @@ class FastMRIKneeDataSet(Dataset):
 
             kspace = np.asarray(ksp_idx)
 
+
         return kspace, maps
 
     def __len__(self):
@@ -140,13 +158,17 @@ def get_dataset(config, mode):
     if config.data.dataset_name in ["fastMRI_knee", "fastMRI_brain"]:
         dataset = FastMRIKneeDataSet(config, mode)
 
-    if mode == "training":
+    if mode in ["train", "training"]:
+        print("[DEBUG] mode =", mode)
+        print("[DEBUG] training.batch_size =", config.training.batch_size)
+        print("[DEBUG] sampling.batch_size =", config.sampling.batch_size)
         data = DataLoader(
             dataset,
             batch_size=config.training.batch_size,
             shuffle=True,
             num_workers=8,
             pin_memory=False,
+            drop_last=True
         )
         # data = DataLoader(dataset, batch_size=config.training.batch_size, shuffle=True, pin_memory=True)
     else:
@@ -159,6 +181,7 @@ def get_dataset(config, mode):
             pin_memory=False,
             worker_init_fn=worker_init_fn,
             num_workers=0,
+            drop_last=True
         )
 
     print(mode, "data loaded")

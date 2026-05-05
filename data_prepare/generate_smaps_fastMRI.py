@@ -43,8 +43,8 @@ except Exception as e:
 
 #output_dir = '.'
 #input_dir = '/data0/chentao/data/fastMRI_knee_test/T1_data'
-input_dir = '/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/kspace'  # kspace文件目录
-output_dir = '/mnt/SSD/wsy/fastmri_data/brain_multicoil_val_dev/maps'  # maps目录保存灵敏度图
+input_dir = '/mnt/SSD/wsy/fastmri_data/debug/brain_multicoil_val_small/kspace'  # kspace文件目录
+output_dir = '/mnt/SSD/wsy/fastmri_data/debug/brain_multicoil_val_small/maps'  # maps目录保存灵敏度图
 
 def main(input_dir, output_dir):
     if not os.path.exists(output_dir):

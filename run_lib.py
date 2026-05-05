@@ -13,7 +13,10 @@ import torch
 from torch.utils import tensorboard
 from utils.utils import *
 import utils.datasets as datasets
-import tensorflow as tf
+#import tensorflow as tf
+import json
+import csv
+import numpy as np
 from utils.calc import Evaluation_metrics
 
 FLAGS = flags.FLAGS
@@ -30,10 +33,10 @@ def train(config, workdir):
 
     # The directory for saving test results during training
     sample_dir = os.path.join(workdir, "samples_in_train")
-    tf.io.gfile.makedirs(sample_dir)
+    os.makedirs(sample_dir, exist_ok=True)
 
     tb_dir = os.path.join(workdir, "tensorboard")
-    tf.io.gfile.makedirs(tb_dir)
+    os.makedirs(tb_dir, exist_ok=True)
     writer = tensorboard.SummaryWriter(tb_dir)
 
     # Initialize model.
@@ -46,7 +49,7 @@ def train(config, workdir):
 
     # Create checkpoints directory
     checkpoint_dir = os.path.join(workdir, "checkpoints")
-    tf.io.gfile.makedirs(checkpoint_dir)
+    os.makedirs(checkpoint_dir, exist_ok=True)
 
     initial_step = int(state["step"])
 
@@ -100,26 +103,38 @@ def train(config, workdir):
             loss = train_step_fn(state, label)
             loss_sum += loss
 
-            param_num = sum(param.numel() for param in state["model"].parameters())
-            # if step % 10 == 0:
-            print(
-                "Epoch",
-                epoch + 1,
-                "/",
-                config.training.epochs,
-                "Step",
-                step,
-                "loss = ",
-                loss.cpu().data.numpy(),
-                "loss mean =",
-                loss_sum.cpu().data.numpy() / (step + 1),
-                "time",
-                time.time() - t0,
-                "param_num",
-                param_num,
-            )
+            if step % 50 == 0:
+                param_num = sum(param.numel() for param in state["model"].parameters())
+                print(
+                    "Epoch",
+                    epoch + 1,
+                    "/",
+                    config.training.epochs,
+                    "Step",
+                    step,
+                    "loss = ",
+                    loss.cpu().data.numpy(),
+                    "loss mean =",
+                    loss_sum.cpu().data.numpy() / (step + 1),
+                    "time",
+                    time.time() - t0,
+                    "param_num",
+                    param_num,
+                    flush=True,
+                )
 
-        # Save a checkpoint for every 5 epochs
+        print(
+            "[EPOCH END]",
+            "Epoch",
+            epoch + 1,
+            "/",
+            config.training.epochs,
+            "loss mean =",
+            loss_sum.cpu().data.numpy() / (step + 1),
+            flush=True,
+        )
+
+        # Save a checkpoint for every 5 epochs,改过优化参数，这个得改改
         if (epoch + 1) % 5 == 0:
             save_checkpoint(
                 os.path.join(checkpoint_dir, f"checkpoint_{epoch + 1}.pth"), state
@@ -240,7 +255,9 @@ def sample(config, workdir):
         )  # mode=test:90多张图，modex=sample:一张图，第十张
 
     FLAGS.config.sampling.folder = os.path.join(FLAGS.workdir, SAMPLING_FOLDER_ID)
-    tf.io.gfile.makedirs(FLAGS.config.sampling.folder)
+    os.makedirs(FLAGS.config.sampling.folder, exist_ok=True)
+    metrics_records = []
+    zf_metrics_records = []
 
     # Create data scaler and its inverse
     scaler = get_data_scaler(config)
@@ -293,8 +310,7 @@ def sample(config, workdir):
         label = Emat_xyt_complex(k0, True, csm_complex, 1.0).to(config.device)
 
         label_dir = os.path.join("results", FLAGS.config.sampling.datashift)
-        if not tf.io.gfile.exists(label_dir):
-            tf.io.gfile.makedirs(label_dir)
+        os.makedirs(label_dir, exist_ok=True)
         save_mat(label_dir, label.to(label), "label", index, normalize=False)
 
         # undersampled k-space
@@ -312,7 +328,18 @@ def sample(config, workdir):
               torch.abs(zf_complex).mean().item())
 
         print("ZF metrics:")
-        Evaluation_metrics(label, zf_complex, False)
+        zf_ssim, zf_psnr, zf_nmse = Evaluation_metrics(label, zf_complex, False)
+
+        zf_psnr = float(zf_psnr)
+        zf_ssim = float(zf_ssim)
+        zf_nmse = float(zf_nmse)
+
+        zf_metrics_records.append({
+            "index": int(index),
+            "psnr": zf_psnr,
+            "ssim": zf_ssim,
+            "nmse": zf_nmse,
+        })
 
         # 给 sampling 准备 atb_to_image
         atb_to_image = (
@@ -355,9 +382,116 @@ def sample(config, workdir):
             True if FLAGS.config.sampling.datashift == "photom" else False,
         )
 
+        psnr = float(psnr)
+        ssim = float(ssim)
+        nmse = float(nmse)
+
+        metrics_records.append({
+            "index": int(index),
+            "psnr": psnr,
+            "ssim": ssim,
+            "nmse": nmse,
+        })
+
         print(
             f"mse_{config.sampling.mse}_snr_{config.sampling.snr}_cmse_{config.sampling.corrector_mse}:"
         )
         print("nmse:", nmse)
         print("ssim:", ssim)
         print("psnr:", psnr)
+
+    if len(metrics_records) > 0:
+        psnrs = np.array([m["psnr"] for m in metrics_records], dtype=np.float64)
+        ssims = np.array([m["ssim"] for m in metrics_records], dtype=np.float64)
+        nmses = np.array([m["nmse"] for m in metrics_records], dtype=np.float64)
+
+        zf_psnrs = np.array([m["psnr"] for m in zf_metrics_records], dtype=np.float64)
+        zf_ssims = np.array([m["ssim"] for m in zf_metrics_records], dtype=np.float64)
+        zf_nmses = np.array([m["nmse"] for m in zf_metrics_records], dtype=np.float64)
+
+        summary = {
+            "ckpt": str(config.sampling.ckpt),
+            "num_samples": int(len(metrics_records)),
+
+            "zf_psnr_mean": float(np.mean(zf_psnrs)),
+            "zf_psnr_std": float(np.std(zf_psnrs)),
+            "zf_ssim_mean": float(np.mean(zf_ssims)),
+            "zf_ssim_std": float(np.std(zf_ssims)),
+            "zf_nmse_mean": float(np.mean(zf_nmses)),
+            "zf_nmse_std": float(np.std(zf_nmses)),
+
+            "recon_psnr_mean": float(np.mean(psnrs)),
+            "recon_psnr_std": float(np.std(psnrs)),
+            "recon_ssim_mean": float(np.mean(ssims)),
+            "recon_ssim_std": float(np.std(ssims)),
+            "recon_nmse_mean": float(np.mean(nmses)),
+            "recon_nmse_std": float(np.std(nmses)),
+
+            "delta_psnr": float(np.mean(psnrs) - np.mean(zf_psnrs)),
+            "delta_ssim": float(np.mean(ssims) - np.mean(zf_ssims)),
+            "delta_nmse": float(np.mean(nmses) - np.mean(zf_nmses)),
+        }
+
+        print("\n========== Sampling Summary ==========", flush=True)
+        print(f"Checkpoint: {config.sampling.ckpt}", flush=True)
+        print(f"Num samples: {summary['num_samples']}", flush=True)
+        print(
+            f"ZF:    PSNR {summary['zf_psnr_mean']:.2f} ± {summary['zf_psnr_std']:.2f}, "
+            f"SSIM {summary['zf_ssim_mean']:.4f} ± {summary['zf_ssim_std']:.4f}, "
+            f"NMSE {summary['zf_nmse_mean']:.4f} ± {summary['zf_nmse_std']:.4f}",
+            flush=True,
+        )
+        print(
+            f"Recon: PSNR {summary['recon_psnr_mean']:.2f} ± {summary['recon_psnr_std']:.2f}, "
+            f"SSIM {summary['recon_ssim_mean']:.4f} ± {summary['recon_ssim_std']:.4f}, "
+            f"NMSE {summary['recon_nmse_mean']:.4f} ± {summary['recon_nmse_std']:.4f}",
+            flush=True,
+        )
+        print(
+            f"Delta: PSNR {summary['delta_psnr']:+.2f}, "
+            f"SSIM {summary['delta_ssim']:+.4f}, "
+            f"NMSE {summary['delta_nmse']:+.4f}",
+            flush=True,
+        )
+        print("======================================\n", flush=True)
+
+        metrics_json = os.path.join(FLAGS.config.sampling.folder, "metrics_summary.json")
+        with open(metrics_json, "w") as f:
+            json.dump(
+                {
+                    "zf_per_sample": zf_metrics_records,
+                    "recon_per_sample": metrics_records,
+                    "summary": summary,
+                },
+                f,
+                indent=2,
+            )
+
+        metrics_csv = os.path.join(FLAGS.config.sampling.folder, "metrics_per_sample.csv")
+        with open(metrics_csv, "w", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "index",
+                    "zf_psnr", "zf_ssim", "zf_nmse",
+                    "recon_psnr", "recon_ssim", "recon_nmse",
+                    "delta_psnr", "delta_ssim", "delta_nmse",
+                ],
+            )
+            writer.writeheader()
+            for zf_row, recon_row in zip(zf_metrics_records, metrics_records):
+                writer.writerow({
+                    "index": recon_row["index"],
+                    "zf_psnr": zf_row["psnr"],
+                    "zf_ssim": zf_row["ssim"],
+                    "zf_nmse": zf_row["nmse"],
+                    "recon_psnr": recon_row["psnr"],
+                    "recon_ssim": recon_row["ssim"],
+                    "recon_nmse": recon_row["nmse"],
+                    "delta_psnr": recon_row["psnr"] - zf_row["psnr"],
+                    "delta_ssim": recon_row["ssim"] - zf_row["ssim"],
+                    "delta_nmse": recon_row["nmse"] - zf_row["nmse"],
+                })
+
+        print(f"[Saved] {metrics_json}", flush=True)
+        print(f"[Saved] {metrics_csv}", flush=True)
